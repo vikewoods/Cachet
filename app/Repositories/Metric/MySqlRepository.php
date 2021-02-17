@@ -16,7 +16,12 @@ use DateInterval;
 use Illuminate\Support\Facades\DB;
 use Jenssegers\Date\Date;
 
-class MySqlRepository implements MetricInterface
+/**
+ * This is the mysql repository class.
+ *
+ * @author James Brooks <james@alt-three.com>
+ */
+class MySqlRepository extends AbstractMetricRepository implements MetricInterface
 {
     /**
      * Returns metrics for the last hour.
@@ -31,6 +36,7 @@ class MySqlRepository implements MetricInterface
     {
         $dateTime = (new Date())->sub(new DateInterval('PT'.$hour.'H'))->sub(new DateInterval('PT'.$minute.'M'));
         $timeInterval = $dateTime->format('YmdHi');
+        $metricPointsTableName = $this->getMetricPointsTableName();
 
         if (!isset($metric->calc_type) || $metric->calc_type == Metric::CALC_SUM) {
             $queryType = 'SUM(mp.`value` * mp.`counter`) AS `value`';
@@ -40,7 +46,7 @@ class MySqlRepository implements MetricInterface
 
         $value = 0;
 
-        $points = DB::select("SELECT {$queryType} FROM metrics m INNER JOIN metric_points mp ON m.id = mp.metric_id WHERE m.id = :metricId AND DATE_FORMAT(mp.`created_at`, '%Y%m%d%H%i') = :timeInterval GROUP BY HOUR(mp.`created_at`), MINUTE(mp.`created_at`)", [
+        $points = DB::select("SELECT {$queryType} FROM {$this->getTableName()} m INNER JOIN $metricPointsTableName mp ON m.id = mp.metric_id WHERE m.id = :metricId AND DATE_FORMAT(mp.`created_at`, '%Y%m%d%H%i') = :timeInterval GROUP BY HOUR(mp.`created_at`), MINUTE(mp.`created_at`)", [
             'metricId'     => $metric->id,
             'timeInterval' => $timeInterval,
         ]);
@@ -68,6 +74,7 @@ class MySqlRepository implements MetricInterface
     {
         $dateTime = (new Date())->sub(new DateInterval('PT'.$hour.'H'));
         $hourInterval = $dateTime->format('YmdH');
+        $metricPointsTableName = $this->getMetricPointsTableName();
 
         if (!isset($metric->calc_type) || $metric->calc_type == Metric::CALC_SUM) {
             $queryType = 'SUM(mp.`value` * mp.`counter`) AS `value`';
@@ -77,7 +84,7 @@ class MySqlRepository implements MetricInterface
 
         $value = 0;
 
-        $points = DB::select("SELECT {$queryType} FROM metrics m INNER JOIN metric_points mp ON m.id = mp.metric_id WHERE m.id = :metricId AND DATE_FORMAT(mp.`created_at`, '%Y%m%d%H') = :hourInterval GROUP BY HOUR(mp.`created_at`)", [
+        $points = DB::select("SELECT {$queryType} FROM {$this->getTableName()} m INNER JOIN $metricPointsTableName mp ON m.id = mp.metric_id WHERE m.id = :metricId AND DATE_FORMAT(mp.`created_at`, '%Y%m%d%H') = :hourInterval GROUP BY HOUR(mp.`created_at`)", [
             'metricId'     => $metric->id,
             'hourInterval' => $hourInterval,
         ]);
@@ -103,6 +110,7 @@ class MySqlRepository implements MetricInterface
     public function getPointsForDayInWeek(Metric $metric, $day)
     {
         $dateTime = (new Date())->sub(new DateInterval('P'.$day.'D'));
+        $metricPointsTableName = $this->getMetricPointsTableName();
 
         if (!isset($metric->calc_type) || $metric->calc_type == Metric::CALC_SUM) {
             $queryType = 'SUM(mp.`value` * mp.`counter`) AS `value`';
@@ -112,7 +120,7 @@ class MySqlRepository implements MetricInterface
 
         $value = 0;
 
-        $points = DB::select("SELECT {$queryType} FROM metrics m INNER JOIN metric_points mp ON m.id = mp.metric_id WHERE m.id = :metricId AND mp.`created_at` BETWEEN DATE_SUB(mp.`created_at`, INTERVAL 1 WEEK) AND DATE_ADD(NOW(), INTERVAL 1 DAY) AND DATE_FORMAT(mp.`created_at`, '%Y%m%d') = :timeInterval GROUP BY DATE_FORMAT(mp.`created_at`, '%Y%m%d')", [
+        $points = DB::select("SELECT {$queryType} FROM {$this->getTableName()} m INNER JOIN $metricPointsTableName mp ON m.id = mp.metric_id WHERE m.id = :metricId AND mp.`created_at` BETWEEN DATE_SUB(mp.`created_at`, INTERVAL 1 WEEK) AND DATE_ADD(NOW(), INTERVAL 1 DAY) AND DATE_FORMAT(mp.`created_at`, '%Y%m%d') = :timeInterval GROUP BY DATE_FORMAT(mp.`created_at`, '%Y%m%d')", [
             'metricId'     => $metric->id,
             'timeInterval' => $dateTime->format('Ymd'),
         ]);
